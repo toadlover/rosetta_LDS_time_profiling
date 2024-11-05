@@ -136,6 +136,7 @@ using utility::string_split;
 
 // Time profiling header
 #include <time.h>
+#include <chrono>
 
 //for data type debugging
 #include <typeinfo>
@@ -640,6 +641,41 @@ void LigandDiscoverySearch::run_HighResDock_on_working_pose(const protocols::lig
 //parameter is a string to be a prefix name to use for outputted file names
 core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 {
+	//declare start timer
+	auto program_start = std::chrono::high_resolution_clock::now();
+
+	int clash_attempt_count = 0;
+	float total_clash_time = 0;
+	float time_per_clash = 0;
+
+	int space_fill_attempt_count = 0;
+	float total_space_fill_time = 0;
+	float time_per_space_fill = 0;
+
+	int init_scoring_attempt_count = 0;
+	float total_init_scoring_time = 0;
+	float time_per_init_scoring = 0;
+
+	int init_ddg_attempt_count = 0;
+	float total_init_ddg_time = 0;
+	float time_per_init_ddg = 0;
+
+	int hrd_attempt_count = 0;
+	float total_hrd_time = 0;
+	float time_per_hrd = 0;	
+
+	int post_ddg_attempt_count = 0;
+	float total_post_ddg_time = 0;
+	float time_per_post_ddg = 0;
+
+	int post_scoring_attempt_count = 0;
+	float total_post_scoring_time = 0;
+	float time_per_post_scoring = 0;
+
+	int motif_attempt_count = 0;
+	float total_motif_time = 0;
+	float time_per_motif = 0;
+
 	//create tracer to identify points of the run
 	//This tracer uses the following tracer outpurs: standard (no extension), Debug, Warning, and Trace
 	static basic::Tracer ms_tr( "LigandDiscoverySearch.discover", basic::t_info );
@@ -970,9 +1006,15 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 
 					//bool to determine if placed residue clashes against the backbone
 					bool has_clashing = false;
+					
+					clash_attempt_count++;
+					auto clash_start = std::chrono::high_resolution_clock::now();
 
 					//check if the placement clashes
 					has_clashing = ligand_clash_check(ligresOP, x_shift, y_shift, z_shift, x_bound_int, y_bound_int, z_bound_int);
+
+					auto clash_end = std::chrono::high_resolution_clock::now() - clash_start;
+					total_clash_time += std::chrono::duration<float, std::milli>(clash_end - clash_start).count();
 
 					//continue because we clash
 					if ( has_clashing == true ) {
@@ -986,13 +1028,18 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 
 					if ( option[ OptionKeys::motifs::space_fill_cutoff_score ].user() || option[ OptionKeys::motifs::space_fill_cutoff_score_sub ].user() || option[ OptionKeys::motifs::space_fill_cutoff_differential_score_sub ].user() ) {
 
+						space_fill_attempt_count++;
+						auto sf_start = std::chrono::high_resolution_clock::now();
+
 						//track the space fill score for the system and sub_area, hold as a 2d Real vector
 						//index 1 is the score for the whole system, index 2 is the score for the sub area
 						//default values are 0
 						utility::vector1<core::Real> space_fill_scores (2,0);
 
+
 						//run space fill analysis function, set to a vector
 						SpaceFillMatrix current_space_fill_matrix = space_fill_analysis(ligresOP, xyz_shift_sf, xyz_bound_sf, resolution_increase_factor, sub_xyz_min_sf, sub_xyz_max_sf, space_fill_scores, matrix_data_counts);
+
 
 						//derive a differential score for the sub area between the placed and empty system
 						//only do anything if the user used the differencial cutoff score
@@ -1015,6 +1062,9 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 
 						//at end before check, reset matrix_data_counts so that it returns to the empty state
 						matrix_data_counts = matrix_data_counts_empty;
+
+						auto sf_end = std::chrono::high_resolution_clock::now() - sf_start;
+						total_space_fill_time += std::chrono::duration<float, std::milli>(sf_end - sf_start).count();
 
 						//run check for if the placement is passable based on score
 						//either the whole system score or the sub area score need to pass (one can fail)
@@ -1072,8 +1122,14 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 					core::Real fa_atr;
 					core::Real fa_atr_rep_score_before;
 
+					init_scoring_attempt_count++;
+					auto init_scoring_start = std::chrono::high_resolution_clock::now();
+
 					//score the minipose and set the value to a bool
 					bool minipose_scoring = score_minipose(minipose,fa_rep,fa_atr,fa_atr_rep_score_before);
+
+					auto init_scoring_end = std::chrono::high_resolution_clock::now() - init_scoring_start;
+					total_init_scoring_time += std::chrono::duration<float, std::milli>(init_scoring_end - init_scoring_start).count();
 
 					//delete the last residue off minipose (the ligand), since we no longer need it and can recycle the minipose for further iterations
 					minipose->delete_residue_slow(minipose->size());
@@ -1098,6 +1154,9 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 					//declaration of variable
 					core::Real delta_score = 10000;
 
+					init_ddg_attempt_count++;
+					auto init_ddg_start = std::chrono::high_resolution_clock::now();
+
 					//use fa atr/rep or whole function based on highresdock_with_whole_score_fxn flag to get ddg before highresdock
 					if ( option[ OptionKeys::motifs::highresdock_with_whole_score_fxn ] ) {
 						//whole
@@ -1106,6 +1165,9 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 						//atrrep
 						delta_score = get_pose_ddg(fa_atr_rep_fxn_, working_pose_);
 					}
+
+					auto init_ddg_end = std::chrono::high_resolution_clock::now() - init_ddg_start;
+					total_init_ddg_time += std::chrono::duration<float, std::milli>(init_ddg_end - init_ddg_start).count();
 
 					ms_tr.Debug << "Pre-move delta score = " << delta_score << ", fa_atr = " << fa_atr << ", fa_rep = " << fa_rep << ", fa_atr_rep before = " << fa_atr_rep_score_before << std::endl;
 
@@ -1122,8 +1184,17 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 						add_ligand_to_pose_residuetypeset(lig_mrt);
 					}
 
+					hrd_attempt_count++;
+					auto hrd_start = std::chrono::high_resolution_clock::now();
+
 					//apply the highresdocker to working_pose
 					run_HighResDock_on_working_pose(my_HighResDocker);
+
+					auto hrd_end = std::chrono::high_resolution_clock::now() - hrd_start;
+					total_hrd_time += std::chrono::duration<float, std::milli>(hrd_end - hrd_start).count();
+
+					post_ddg_attempt_count++;
+					auto post_ddg_start = std::chrono::high_resolution_clock::now();
 
 					//use fa atr/rep or whole function based on highresdock_with_whole_score_fxn flag to get ddg before highresdock
 					if ( option[ OptionKeys::motifs::highresdock_with_whole_score_fxn ] ) {
@@ -1133,6 +1204,12 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 						//atrrep
 						delta_score = get_pose_ddg(fa_atr_rep_fxn_, working_pose_);
 					}
+
+					auto post_ddg_end = std::chrono::high_resolution_clock::now() - post_ddg_start;
+					total_post_ddg_time +=std::chrono::duration<float, std::milli>(post_ddg_end - post_ddg_start).count();
+
+					post_scoring_attempt_count++;
+					auto post_score_start = std::chrono::high_resolution_clock::now();
 
 					//this section up until collecting motifs off the placed ligand I do not think makes sense to put into its own function
 					//My reasoning is that this could be made into 2 small specific scoring functions, which seems like extra work
@@ -1196,6 +1273,10 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 						}
 						ms_tr.Debug << std::endl;
 					}
+
+					auto post_score_end = std::chrono::high_resolution_clock::now() - post_score_start;
+					total_post_scoring_time += std::chrono::duration<float, std::milli>(post_score_end - post_score_start).count();
+
 					//check if whole_score is within cutoff, kill if not
 					//need to remove ligand from poses so that they can be recycled
 					//in theory, atr and rep should only improve, but this check helps make sure of that
@@ -1274,6 +1355,9 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 					//option to try to pull motifs from the passed placement and see what motifs are collected, how many there are, if motifs are made with any residues of interest, and if the motifs match any motifs in the motif library
 					if ( option[ OptionKeys::motifs::collect_motifs_from_placed_ligand] ) {
 
+						motif_attempt_count++;
+						auto motif_start = std::chrono::high_resolution_clock::now();
+
 						ms_tr.Trace << "Preparing to collect motif data from placed ligand." << std::endl;
 
 						//make a vector that holds the following data in its indices as follows:
@@ -1322,6 +1406,9 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 
 						//after optional modifications, add ".pdb" to cap off name
 						pdb_name = pdb_name + ".pdb";
+
+						auto motif_end = std::chrono::high_resolution_clock::now() - motif_start;
+						total_motif_time +=std::chrono::duration<float, std::milli>(motif_end - motif_start).count();
 
 					} else {
 						comment_table_data = comment_table_data + "," + "," + "," + ",";
@@ -1427,6 +1514,82 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 		ms_tr.Debug << "Number of placements that passed all filters: " << passed_placement_counter << std::endl;
 
 	}
+
+
+
+	//print timing results
+	auto program_end = std::chrono::high_resolution_clock::now() - program_start;
+	float total_program_time = std::chrono::duration<float, std::milli>(program_end - program_start).count();
+
+	std::cout << "Total program time: " << total_program_time << std::endl;
+
+	//clash time
+	if (total_clash_time != 0)
+	{
+		time_per_clash = total_clash_time / clash_attempt_count;
+		std::cout << "Total clash time = " << total_clash_time << std::endl;
+		std::cout << "Clash time per placement " << time_per_clash << std::endl;
+	}
+
+	//space fille
+	if (total_space_fill_time != 0)
+	{
+		time_per_space_fill = total_space_fill_time / space_fill_attempt_count;
+		std::cout << "Total space fill time = " << total_space_fill_time << std::endl;
+		std::cout << "Space fill time per placement = " << time_per_space_fill << std::endl;
+	}
+
+	//initial scoring
+	if (total_init_scoring_time != 0)
+	{
+		time_per_init_scoring = total_init_scoring_time / init_scoring_attempt_count;
+		std::cout << "Total initial scoring time = " << total_init_scoring_time << std::endl;
+		std::cout << "Init scoring time per placement = " << time_per_init_scoring << std::endl;
+	}
+
+	//initial ddg
+	if (total_init_ddg_time != 0)
+	{
+		time_per_init_ddg = total_init_ddg_time / init_ddg_attempt_count;
+		std::cout << "Total initial ddg time = " << total_init_ddg_time << std::endl;
+		std::cout << "Init ddg time per placement = " << time_per_init_ddg << std::endl;
+	}
+
+	//hrd
+	if (total_hrd_time != 0)
+	{
+		time_per_hrd = total_hrd_time / hrd_attempt_count;
+		std::cout << "Total hrd time = " << total_hrd_time << std::endl;
+		std::cout << "Hrd time per placement = " << time_per_hrd << std::endl;
+	}
+
+	//post ddg
+	if (total_post_ddg_time != 0)
+	{
+		time_per_post_ddg = total_post_ddg_time / post_ddg_attempt_count;
+		std::cout << "Total post ddg time = " << total_post_ddg_time << std::endl;
+		std::cout << "Post ddg time per placement = " << time_per_post_ddg << std::endl;
+	}
+
+
+	//post scoring
+	if (total_post_scoring_time != 0)
+	{
+		time_per_post_scoring = total_post_scoring_time / post_scoring_attempt_count;
+		std::cout << "Total post scoring time = " << total_post_scoring_time << std::endl;
+		std::cout << "Post scoring time per placement = " << time_per_post_scoring << std::endl;
+	}
+
+
+	//motifs
+	if (total_motif_time != 0)
+	{
+		time_per_motif = total_motif_time / motif_attempt_count;
+		std::cout << "Total motif time = " << total_motif_time << std::endl;
+		std::cout << "Motif time per placement = " << time_per_motif << std::endl;
+	}
+
+
 	return 1;
 }
 
