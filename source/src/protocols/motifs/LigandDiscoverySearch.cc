@@ -1013,7 +1013,7 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 					//check if the placement clashes
 					has_clashing = ligand_clash_check(ligresOP, x_shift, y_shift, z_shift, x_bound_int, y_bound_int, z_bound_int);
 
-					auto clash_end = std::chrono::high_resolution_clock::now() - clash_start;
+					auto clash_end = std::chrono::high_resolution_clock::now();
 					total_clash_time += std::chrono::duration<float, std::milli>(clash_end - clash_start).count();
 
 					//continue because we clash
@@ -1063,7 +1063,7 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 						//at end before check, reset matrix_data_counts so that it returns to the empty state
 						matrix_data_counts = matrix_data_counts_empty;
 
-						auto sf_end = std::chrono::high_resolution_clock::now() - sf_start;
+						auto sf_end = std::chrono::high_resolution_clock::now();
 						total_space_fill_time += std::chrono::duration<float, std::milli>(sf_end - sf_start).count();
 
 						//run check for if the placement is passable based on score
@@ -1128,7 +1128,7 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 					//score the minipose and set the value to a bool
 					bool minipose_scoring = score_minipose(minipose,fa_rep,fa_atr,fa_atr_rep_score_before);
 
-					auto init_scoring_end = std::chrono::high_resolution_clock::now() - init_scoring_start;
+					auto init_scoring_end = std::chrono::high_resolution_clock::now();
 					total_init_scoring_time += std::chrono::duration<float, std::milli>(init_scoring_end - init_scoring_start).count();
 
 					//delete the last residue off minipose (the ligand), since we no longer need it and can recycle the minipose for further iterations
@@ -1166,7 +1166,7 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 						delta_score = get_pose_ddg(fa_atr_rep_fxn_, working_pose_);
 					}
 
-					auto init_ddg_end = std::chrono::high_resolution_clock::now() - init_ddg_start;
+					auto init_ddg_end = std::chrono::high_resolution_clock::now();
 					total_init_ddg_time += std::chrono::duration<float, std::milli>(init_ddg_end - init_ddg_start).count();
 
 					ms_tr.Debug << "Pre-move delta score = " << delta_score << ", fa_atr = " << fa_atr << ", fa_rep = " << fa_rep << ", fa_atr_rep before = " << fa_atr_rep_score_before << std::endl;
@@ -1190,7 +1190,7 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 					//apply the highresdocker to working_pose
 					run_HighResDock_on_working_pose(my_HighResDocker);
 
-					auto hrd_end = std::chrono::high_resolution_clock::now() - hrd_start;
+					auto hrd_end = std::chrono::high_resolution_clock::now();
 					total_hrd_time += std::chrono::duration<float, std::milli>(hrd_end - hrd_start).count();
 
 					post_ddg_attempt_count++;
@@ -1205,7 +1205,7 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 						delta_score = get_pose_ddg(fa_atr_rep_fxn_, working_pose_);
 					}
 
-					auto post_ddg_end = std::chrono::high_resolution_clock::now() - post_ddg_start;
+					auto post_ddg_end = std::chrono::high_resolution_clock::now();
 					total_post_ddg_time +=std::chrono::duration<float, std::milli>(post_ddg_end - post_ddg_start).count();
 
 					post_scoring_attempt_count++;
@@ -1274,7 +1274,7 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 						ms_tr.Debug << std::endl;
 					}
 
-					auto post_score_end = std::chrono::high_resolution_clock::now() - post_score_start;
+					auto post_score_end = std::chrono::high_resolution_clock::now();
 					total_post_scoring_time += std::chrono::duration<float, std::milli>(post_score_end - post_score_start).count();
 
 					//check if whole_score is within cutoff, kill if not
@@ -1407,7 +1407,7 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 						//after optional modifications, add ".pdb" to cap off name
 						pdb_name = pdb_name + ".pdb";
 
-						auto motif_end = std::chrono::high_resolution_clock::now() - motif_start;
+						auto motif_end = std::chrono::high_resolution_clock::now();
 						total_motif_time +=std::chrono::duration<float, std::milli>(motif_end - motif_start).count();
 
 					} else {
@@ -1518,7 +1518,7 @@ core::Size LigandDiscoverySearch::discover(std::string output_prefix)
 
 
 	//print timing results
-	auto program_end = std::chrono::high_resolution_clock::now() - program_start;
+	auto program_end = std::chrono::high_resolution_clock::now();
 	float total_program_time = std::chrono::duration<float, std::milli>(program_end - program_start).count();
 
 	std::cout << "Total program time: " << total_program_time << std::endl;
